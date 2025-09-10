@@ -171,7 +171,11 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
               end
           end
 
-          IO.inspect(abi, label: "ABI before normalization")
+        IO.puts("=== DEBUG TARGET DETECTION ===")
+        IO.puts("Original erlang system architecture: #{inspect(:erlang.system_info(:system_architecture))}")
+        IO.puts("Parsed target components: #{inspect(target)}")
+        IO.puts("Initial [arch, os, abi]: #{inspect([arch, os, abi])}")
+
         abi =
           case abi do
             "darwin" <> _ ->
@@ -218,7 +222,13 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
             System.get_env("TARGET_ARCH", arch)
           end
 
-        {Enum.join([arch, os, abi], "-"), [arch, os, abi]}
+        final_target = Enum.join([arch, os, abi], "-")
+        IO.puts("Final target: #{final_target}")
+        IO.puts("Available targets: #{inspect(available_targets())}")
+        IO.puts("Target available?: #{inspect(Enum.member?(available_targets(), final_target))}")
+        IO.puts("=== END DEBUG TARGET ===")
+
+        {final_target, [arch, os, abi]}
     end
   end
 
@@ -849,17 +859,37 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     {:ok, %Version{pre: pre}} = Version.parse(Metadata.version())
     nif_version = get_nif_version()
 
+    IO.puts("=== DEBUG DEPLOY TYPE ===")
+    IO.puts("Target: #{target}")
+    IO.puts("ABI: #{abi}")
+    IO.puts("Version pre: #{inspect(pre)}")
+    IO.puts("NIF version: #{nif_version}")
+    IO.puts("use_precompiled?: #{use_precompiled?(log?)}")
+    IO.puts("available_for_target?: #{available_for_target?(target, log?)}")
+    IO.puts("available_for_nif_version?: #{available_for_nif_version?(nif_version, log?)}")
+
     if use_precompiled?(log?) and pre != ["dev"] and
          available_for_target?(target, log?) and available_for_nif_version?(nif_version, log?) do
+      IO.puts("Deploy type: PRECOMPILED")
+      IO.puts("=== END DEBUG DEPLOY ===")
       {:precompiled, abi}
     else
+      IO.puts("Deploy type: BUILD_FROM_SOURCE")
+      IO.puts("Reason - use_precompiled: #{use_precompiled?(log?)}")
+      IO.puts("Reason - not dev version: #{pre != ["dev"]}")
+      IO.puts("Reason - target available: #{available_for_target?(target, log?)}")
+      IO.puts("Reason - nif available: #{available_for_nif_version?(nif_version, log?)}")
+      IO.puts("=== END DEBUG DEPLOY ===")
       {:build_from_source, abi}
     end
   end
 
   @impl true
   def run(_args) do
+    IO.puts("=== DEBUG EVISION PRECOMPILED RUN ===")
+
     {target, [_arch, os, _abi]} = get_target()
+    IO.puts("Target: #{target}, OS: #{os}")
 
     evision_so_file =
       if os == "windows" do
@@ -878,8 +908,14 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     evision_so_file = Path.join([app_priv(), evision_so_file])
     windows_fix_so_file = Path.join([app_priv(), windows_fix_so_file])
 
+    IO.puts("Checking for files:")
+    IO.puts("  evision_so_file: #{evision_so_file} (exists: #{File.exists?(evision_so_file)})")
+    IO.puts("  windows_fix_so_file: #{windows_fix_so_file} (exists: #{File.exists?(windows_fix_so_file)})")
+
     if !File.exists?(evision_so_file) or !File.exists?(windows_fix_so_file) do
+      IO.puts("Files missing, checking deploy type...")
       with {:precompiled, _} <- deploy_type(true) do
+        IO.puts("Using precompiled binary approach...")
         version = Metadata.version()
         nif_version = get_compile_nif_version()
         enable_contrib = System.get_env("EVISION_ENABLE_CONTRIB", "true") == "true"
@@ -887,6 +923,14 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         {default_cuda_version, default_cudnn_version} = Metadata.default_cuda_version()
         cuda_version = System.get_env("EVISION_CUDA_VERSION", default_cuda_version)
         cudnn_version = System.get_env("EVISION_CUDNN_VERSION", default_cudnn_version)
+
+        IO.puts("Precompiled config:")
+        IO.puts("  version: #{version}")
+        IO.puts("  nif_version: #{nif_version}")
+        IO.puts("  enable_contrib: #{enable_contrib}")
+        IO.puts("  enable_cuda: #{enable_cuda}")
+        IO.puts("  cuda_version: #{cuda_version}")
+        IO.puts("  cudnn_version: #{cudnn_version}")
 
         prepare(
           target,
@@ -899,12 +943,16 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
           cudnn_version
         )
       else
-        _ ->
+        deploy_result ->
+          IO.puts("Deploy type result: #{inspect(deploy_result)}")
+          IO.puts("Cannot use precompiled binaries, will build from source.")
           raise RuntimeError, "Cannot use precompiled binaries."
       end
     else
+      IO.puts("Required files already exist, skipping preparation.")
       :ok
     end
+    IO.puts("=== END DEBUG EVISION PRECOMPILED RUN ===")
   end
 end
 
@@ -917,11 +965,17 @@ defmodule Evision.MixProject do
   @source_url "#{Metadata.github_url()}/tree/v#{Metadata.version()}"
 
   def project do
+    IO.puts("=== DEBUG PROJECT SETUP ===")
+    IO.puts("EVISION_FETCH_PRECOMPILED: #{System.get_env("EVISION_FETCH_PRECOMPILED")}")
+
     {compilers, make_env} =
       if System.get_env("EVISION_FETCH_PRECOMPILED") != "true" do
         {deploy_type, target_abi} = EvisionPrecompiled.deploy_type(false)
+        IO.puts("Deploy type determined: #{deploy_type}")
+        IO.puts("Target ABI: #{target_abi}")
 
         if deploy_type == :build_from_source do
+          IO.puts("Will build from source...")
           {cmake_options, enabled_modules} = generate_cmake_options()
 
           make_env = %{
@@ -950,13 +1004,19 @@ defmodule Evision.MixProject do
                 make_env
             end
 
+          IO.puts("Make env: #{inspect(make_env, pretty: true)}")
           {[:elixir_make] ++ Mix.compilers(), make_env}
         else
+          IO.puts("Will use precompiled...")
           {[:evision_precompiled] ++ Mix.compilers(), %{}}
         end
       else
+        IO.puts("EVISION_FETCH_PRECOMPILED is true, skipping build logic")
         {Mix.compilers(), %{}}
       end
+
+    IO.puts("Final compilers: #{inspect(compilers)}")
+    IO.puts("=== END DEBUG PROJECT ===")
 
     [
       app: Metadata.app(),
@@ -1072,24 +1132,23 @@ defmodule Evision.MixProject do
   @module_configuration %{
     # opencv/opencv_contrib
     opencv: [
-      # module name: is_enabled
-      # note that these true values here only mean that we requested
-      # these module to be compiled
-      # some of them can be disabled due to dependency issues
-      calib3d: true,
-      core: true,
-      dnn: true,
-      features2d: true,
-      flann: true,
-      highgui: true,
-      imgcodecs: true,
-      imgproc: true,
-      ml: true,
-      photo: true,
-      stitching: true,
-      ts: true,
-      video: true,
-      videoio: true,
+      # Essential modules for your image processing code
+      core: true,        # Required: Mat operations, basic functions
+      imgcodecs: true,   # Required: imread() for reading images
+      imgproc: true,     # Required: CLAHE, threshold, morphology, contours
+
+      # Disabled modules - not needed for your code
+      calib3d: false,
+      dnn: false,
+      features2d: false,
+      flann: false,
+      highgui: false,    # GUI functionality - not needed
+      ml: false,
+      photo: false,
+      stitching: false,
+      ts: false,
+      video: false,
+      videoio: false,
       gapi: false,
       world: false,
       python2: false,
@@ -1097,33 +1156,33 @@ defmodule Evision.MixProject do
       java: false
     ],
     opencv_contrib: [
-      aruco: true,
-      barcode: true,
-      bgsegm: true,
-      bioinspired: true,
-      dnn_superres: true,
-      face: true,
-      hfs: true,
-      img_hash: true,
-      line_descriptor: true,
-      mcc: true,
-      plot: true,
-      quality: true,
-      rapid: true,
-      reg: true,
-      rgbd: true,
-      saliency: true,
-      shape: true,
-      stereo: true,
-      structured_light: true,
-      surface_matching: true,
-      text: true,
-      tracking: true,
-      wechat_qrcode:
-        System.get_env("MIX_TARGET") != "ios" or System.get_env("MIX_TARGET") != "xros",
-      xfeatures2d: true,
-      ximgproc: true,
-      xphoto: true,
+      # All contrib modules disabled - not needed for your code
+      aruco: false,
+      barcode: false,
+      bgsegm: false,
+      bioinspired: false,
+      dnn_superres: false,
+      face: false,
+      hfs: false,
+      img_hash: false,
+      line_descriptor: false,
+      mcc: false,
+      plot: false,
+      quality: false,
+      rapid: false,
+      reg: false,
+      rgbd: false,
+      saliency: false,
+      shape: false,
+      stereo: false,
+      structured_light: false,
+      surface_matching: false,
+      text: false,
+      tracking: false,
+      wechat_qrcode: false,
+      xfeatures2d: false,
+      ximgproc: false,
+      xphoto: false,
 
       # no bindings yet
       datasets: false,
@@ -1135,18 +1194,19 @@ defmodule Evision.MixProject do
       xobjdetect: false
     ],
     cuda: [
-      cudaarithm: true,
-      cudabgsegm: true,
-      cudacodec: true,
-      cudafeatures2d: true,
-      cudafilters: true,
-      cudaimgproc: true,
-      cudalegacy: true,
-      cudaobjdetect: true,
-      cudaoptflow: true,
-      cudastereo: true,
-      cudawarping: true,
-      cudev: true
+      # All CUDA modules disabled - not needed for your code
+      cudaarithm: false,
+      cudabgsegm: false,
+      cudacodec: false,
+      cudafeatures2d: false,
+      cudafilters: false,
+      cudaimgproc: false,
+      cudalegacy: false,
+      cudaobjdetect: false,
+      cudaoptflow: false,
+      cudastereo: false,
+      cudawarping: false,
+      cudev: false
     ]
   }
   defp module_configuration, do: @module_configuration
