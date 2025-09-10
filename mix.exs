@@ -160,7 +160,12 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
 
             4 ->
               [arch, _vendor, os, abi] = target
-              [arch, os, abi]
+              # For FreeBSD, map portbld vendor to unknown for compatibility
+              if String.contains?(os, "freebsd") do
+                [arch, "freebsd", "unknown"]
+              else
+                [arch, os, abi]
+              end
 
             1 ->
               with ["win32"] <- target do
@@ -183,6 +188,13 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
 
             "freebsd" <> _ ->
               "freebsd"
+
+            "unknown" ->
+              if String.contains?(os, "freebsd") do
+                "freebsd"
+              else
+                abi
+              end
 
             "win32" ->
               {compiler_id, _} = :erlang.system_info(:c_compiler_used)
@@ -209,7 +221,11 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
                 arch
             end
           else
-            arch
+            # Map FreeBSD amd64 to x86_64
+            case arch do
+              "amd64" -> "x86_64"
+              _ -> arch
+            end
           end
 
         abi = System.get_env("TARGET_ABI", abi)
@@ -222,7 +238,11 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
             System.get_env("TARGET_ARCH", arch)
           end
 
-        final_target = Enum.join([arch, os, abi], "-")
+        final_target =
+          cond do
+            String.contains?(os, "freebsd") -> "#{arch}-unknown-freebsd"
+            true -> Enum.join([arch, os, abi], "-")
+          end
         Logger.info("Final target: #{final_target}")
         Logger.info("Available targets: #{inspect(available_targets())}")
         Logger.info("Target available?: #{inspect(Enum.member?(available_targets(), final_target))}")
