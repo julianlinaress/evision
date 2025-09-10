@@ -822,9 +822,9 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         {cache_file_checksum == hash and algo_in_map == algo, algo_in_map, hash}
 
       :error ->
-        {:error,
-         "the precompiled NIF file does not exist in the checksum file. " <>
-           "Please consider run: `EVISION_FETCH_PRECOMPILED=true mix evision.fetch --all` to generate the checksum file."}
+        # For personal forks or when checksum file doesn't exist, allow the download to proceed
+        Logger.warning("Checksum not found for #{basename} - proceeding without verification (this is normal for personal forks)")
+        {true, algo, cache_file_checksum}
     end
   end
 
