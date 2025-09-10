@@ -171,6 +171,7 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
               end
           end
 
+          IO.inspect(abi, label: "ABI before normalization")
         abi =
           case abi do
             "darwin" <> _ ->
