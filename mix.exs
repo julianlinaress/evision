@@ -240,8 +240,10 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
 
         final_target =
           cond do
-            String.contains?(os, "freebsd") -> "#{arch}-unknown-freebsd"
-            true -> Enum.join([arch, os, abi], "-")
+            String.contains?(to_string(:erlang.system_info(:system_architecture)), "freebsd") ->
+              "#{arch}-unknown-freebsd"
+            true ->
+              Enum.join([arch, os, abi], "-")
           end
         Logger.info("Final target: #{final_target}")
         Logger.info("Available targets: #{inspect(available_targets())}")
