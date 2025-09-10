@@ -171,10 +171,10 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
               end
           end
 
-        IO.puts("=== DEBUG TARGET DETECTION ===")
-        IO.puts("Original erlang system architecture: #{inspect(:erlang.system_info(:system_architecture))}")
-        IO.puts("Parsed target components: #{inspect(target)}")
-        IO.puts("Initial [arch, os, abi]: #{inspect([arch, os, abi])}")
+        Logger.info("=== DEBUG TARGET DETECTION ===")
+        Logger.info("Original erlang system architecture: #{inspect(:erlang.system_info(:system_architecture))}")
+        Logger.info("Parsed target components: #{inspect(target)}")
+        Logger.info("Initial [arch, os, abi]: #{inspect([arch, os, abi])}")
 
         abi =
           case abi do
@@ -223,10 +223,10 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
           end
 
         final_target = Enum.join([arch, os, abi], "-")
-        IO.puts("Final target: #{final_target}")
-        IO.puts("Available targets: #{inspect(available_targets())}")
-        IO.puts("Target available?: #{inspect(Enum.member?(available_targets(), final_target))}")
-        IO.puts("=== END DEBUG TARGET ===")
+        Logger.info("Final target: #{final_target}")
+        Logger.info("Available targets: #{inspect(available_targets())}")
+        Logger.info("Target available?: #{inspect(Enum.member?(available_targets(), final_target))}")
+        Logger.info("=== END DEBUG TARGET ===")
 
         {final_target, [arch, os, abi]}
     end
@@ -859,37 +859,37 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     {:ok, %Version{pre: pre}} = Version.parse(Metadata.version())
     nif_version = get_nif_version()
 
-    IO.puts("=== DEBUG DEPLOY TYPE ===")
-    IO.puts("Target: #{target}")
-    IO.puts("ABI: #{abi}")
-    IO.puts("Version pre: #{inspect(pre)}")
-    IO.puts("NIF version: #{nif_version}")
-    IO.puts("use_precompiled?: #{use_precompiled?(log?)}")
-    IO.puts("available_for_target?: #{available_for_target?(target, log?)}")
-    IO.puts("available_for_nif_version?: #{available_for_nif_version?(nif_version, log?)}")
+    Logger.info("=== DEBUG DEPLOY TYPE ===")
+    Logger.info("Target: #{target}")
+    Logger.info("ABI: #{abi}")
+    Logger.info("Version pre: #{inspect(pre)}")
+    Logger.info("NIF version: #{nif_version}")
+    Logger.info("use_precompiled?: #{use_precompiled?(log?)}")
+    Logger.info("available_for_target?: #{available_for_target?(target, log?)}")
+    Logger.info("available_for_nif_version?: #{available_for_nif_version?(nif_version, log?)}")
 
     if use_precompiled?(log?) and pre != ["dev"] and
          available_for_target?(target, log?) and available_for_nif_version?(nif_version, log?) do
-      IO.puts("Deploy type: PRECOMPILED")
-      IO.puts("=== END DEBUG DEPLOY ===")
+      Logger.info("Deploy type: PRECOMPILED")
+      Logger.info("=== END DEBUG DEPLOY ===")
       {:precompiled, abi}
     else
-      IO.puts("Deploy type: BUILD_FROM_SOURCE")
-      IO.puts("Reason - use_precompiled: #{use_precompiled?(log?)}")
-      IO.puts("Reason - not dev version: #{pre != ["dev"]}")
-      IO.puts("Reason - target available: #{available_for_target?(target, log?)}")
-      IO.puts("Reason - nif available: #{available_for_nif_version?(nif_version, log?)}")
-      IO.puts("=== END DEBUG DEPLOY ===")
+      Logger.info("Deploy type: BUILD_FROM_SOURCE")
+      Logger.info("Reason - use_precompiled: #{use_precompiled?(log?)}")
+      Logger.info("Reason - not dev version: #{pre != ["dev"]}")
+      Logger.info("Reason - target available: #{available_for_target?(target, log?)}")
+      Logger.info("Reason - nif available: #{available_for_nif_version?(nif_version, log?)}")
+      Logger.info("=== END DEBUG DEPLOY ===")
       {:build_from_source, abi}
     end
   end
 
   @impl true
   def run(_args) do
-    IO.puts("=== DEBUG EVISION PRECOMPILED RUN ===")
+    Logger.info("=== DEBUG EVISION PRECOMPILED RUN ===")
 
     {target, [_arch, os, _abi]} = get_target()
-    IO.puts("Target: #{target}, OS: #{os}")
+    Logger.info("Target: #{target}, OS: #{os}")
 
     evision_so_file =
       if os == "windows" do
@@ -908,14 +908,14 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     evision_so_file = Path.join([app_priv(), evision_so_file])
     windows_fix_so_file = Path.join([app_priv(), windows_fix_so_file])
 
-    IO.puts("Checking for files:")
-    IO.puts("  evision_so_file: #{evision_so_file} (exists: #{File.exists?(evision_so_file)})")
-    IO.puts("  windows_fix_so_file: #{windows_fix_so_file} (exists: #{File.exists?(windows_fix_so_file)})")
+    Logger.info("Checking for files:")
+    Logger.info("  evision_so_file: #{evision_so_file} (exists: #{File.exists?(evision_so_file)})")
+    Logger.info("  windows_fix_so_file: #{windows_fix_so_file} (exists: #{File.exists?(windows_fix_so_file)})")
 
     if !File.exists?(evision_so_file) or !File.exists?(windows_fix_so_file) do
-      IO.puts("Files missing, checking deploy type...")
+      Logger.info("Files missing, checking deploy type...")
       with {:precompiled, _} <- deploy_type(true) do
-        IO.puts("Using precompiled binary approach...")
+        Logger.info("Using precompiled binary approach...")
         version = Metadata.version()
         nif_version = get_compile_nif_version()
         enable_contrib = System.get_env("EVISION_ENABLE_CONTRIB", "true") == "true"
@@ -924,13 +924,13 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         cuda_version = System.get_env("EVISION_CUDA_VERSION", default_cuda_version)
         cudnn_version = System.get_env("EVISION_CUDNN_VERSION", default_cudnn_version)
 
-        IO.puts("Precompiled config:")
-        IO.puts("  version: #{version}")
-        IO.puts("  nif_version: #{nif_version}")
-        IO.puts("  enable_contrib: #{enable_contrib}")
-        IO.puts("  enable_cuda: #{enable_cuda}")
-        IO.puts("  cuda_version: #{cuda_version}")
-        IO.puts("  cudnn_version: #{cudnn_version}")
+        Logger.info("Precompiled config:")
+        Logger.info("  version: #{version}")
+        Logger.info("  nif_version: #{nif_version}")
+        Logger.info("  enable_contrib: #{enable_contrib}")
+        Logger.info("  enable_cuda: #{enable_cuda}")
+        Logger.info("  cuda_version: #{cuda_version}")
+        Logger.info("  cudnn_version: #{cudnn_version}")
 
         prepare(
           target,
@@ -944,15 +944,15 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         )
       else
         deploy_result ->
-          IO.puts("Deploy type result: #{inspect(deploy_result)}")
-          IO.puts("Cannot use precompiled binaries, will build from source.")
+          Logger.info("Deploy type result: #{inspect(deploy_result)}")
+          Logger.info("Cannot use precompiled binaries, will build from source.")
           raise RuntimeError, "Cannot use precompiled binaries."
       end
     else
-      IO.puts("Required files already exist, skipping preparation.")
+      Logger.info("Required files already exist, skipping preparation.")
       :ok
     end
-    IO.puts("=== END DEBUG EVISION PRECOMPILED RUN ===")
+    Logger.info("=== END DEBUG EVISION PRECOMPILED RUN ===")
   end
 end
 
@@ -965,17 +965,17 @@ defmodule Evision.MixProject do
   @source_url "#{Metadata.github_url()}/tree/v#{Metadata.version()}"
 
   def project do
-    IO.puts("=== DEBUG PROJECT SETUP ===")
-    IO.puts("EVISION_FETCH_PRECOMPILED: #{System.get_env("EVISION_FETCH_PRECOMPILED")}")
+    Logger.info("=== DEBUG PROJECT SETUP ===")
+    Logger.info("EVISION_FETCH_PRECOMPILED: #{System.get_env("EVISION_FETCH_PRECOMPILED")}")
 
     {compilers, make_env} =
       if System.get_env("EVISION_FETCH_PRECOMPILED") != "true" do
         {deploy_type, target_abi} = EvisionPrecompiled.deploy_type(false)
-        IO.puts("Deploy type determined: #{deploy_type}")
-        IO.puts("Target ABI: #{target_abi}")
+        Logger.info("Deploy type determined: #{deploy_type}")
+        Logger.info("Target ABI: #{target_abi}")
 
         if deploy_type == :build_from_source do
-          IO.puts("Will build from source...")
+          Logger.info("Will build from source...")
           {cmake_options, enabled_modules} = generate_cmake_options()
 
           make_env = %{
@@ -1004,19 +1004,19 @@ defmodule Evision.MixProject do
                 make_env
             end
 
-          IO.puts("Make env: #{inspect(make_env, pretty: true)}")
+          Logger.info("Make env: #{inspect(make_env, pretty: true)}")
           {[:elixir_make] ++ Mix.compilers(), make_env}
         else
-          IO.puts("Will use precompiled...")
+          Logger.info("Will use precompiled...")
           {[:evision_precompiled] ++ Mix.compilers(), %{}}
         end
       else
-        IO.puts("EVISION_FETCH_PRECOMPILED is true, skipping build logic")
+        Logger.info("EVISION_FETCH_PRECOMPILED is true, skipping build logic")
         {Mix.compilers(), %{}}
       end
 
-    IO.puts("Final compilers: #{inspect(compilers)}")
-    IO.puts("=== END DEBUG PROJECT ===")
+    Logger.info("Final compilers: #{inspect(compilers)}")
+    Logger.info("=== END DEBUG PROJECT ===")
 
     [
       app: Metadata.app(),
