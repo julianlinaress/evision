@@ -241,8 +241,10 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         final_target =
           cond do
             String.contains?(to_string(:erlang.system_info(:system_architecture)), "freebsd") ->
+              Logger.info("DEBUG: FreeBSD detected, using x86_64-unknown-freebsd format")
               "#{arch}-unknown-freebsd"
             true ->
+              Logger.info("DEBUG: Not FreeBSD, using standard format: #{inspect([arch, os, abi])}")
               Enum.join([arch, os, abi], "-")
           end
         Logger.info("Final target: #{final_target}")
