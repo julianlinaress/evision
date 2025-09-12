@@ -818,6 +818,25 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     end
   end
 
+  def fix_generated_nif_file(generated_elixir_dir) do
+    nif_file = Path.join(generated_elixir_dir, "evision_nif.ex")
+    
+    if File.exists?(nif_file) do
+      content = File.read!(nif_file)
+      
+      # Replace the problematic evision_windows_fix.run_once() call
+      old_pattern = "    case :evision_windows_fix.run_once() do\n      :ok -> :ok\n      {:error, reason} -> Logger.warning(\"Failed to run windows fix: \#{inspect(reason)}\")\n    end"
+      
+      new_pattern = "    try do\n      case :evision_windows_fix.run_once() do\n        :ok -> :ok\n        {:error, reason} -> Logger.warning(\"Failed to run windows fix: \#{inspect(reason)}\")\n      end\n    catch\n      :error, :undef -> :ok  # Module not available (e.g., on non-Windows systems)\n    end"
+      
+      if String.contains?(content, old_pattern) do
+        fixed_content = String.replace(content, old_pattern, new_pattern)
+        File.write!(nif_file, fixed_content)
+        Logger.info("Applied FreeBSD compatibility fix to #{nif_file}")
+      end
+    end
+  end
+
   def deploy_from_dir!(cached_priv_dir, cached_elixir_dir) do
     app_priv = app_priv()
     generated_elixir_dir = Path.join([File.cwd!(), "lib", "generated"])
@@ -846,6 +865,8 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
     )
 
     with {:ok, _} <- File.cp_r(cached_elixir_dir, generated_elixir_dir) do
+      # Apply FreeBSD fix to generated NIF file
+      fix_generated_nif_file(generated_elixir_dir)
       :ok
     else
       error ->
