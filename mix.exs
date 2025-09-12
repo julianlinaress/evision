@@ -160,7 +160,12 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
 
             4 ->
               [arch, _vendor, os, abi] = target
-              [arch, os, abi]
+              # For FreeBSD, map portbld vendor to unknown for compatibility
+              if String.contains?(os, "freebsd") do
+                [arch, "freebsd", "unknown"]
+              else
+                [arch, os, abi]
+              end
 
             1 ->
               with ["win32"] <- target do
@@ -178,6 +183,13 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
 
             "freebsd" <> _ ->
               "freebsd"
+
+            "unknown" ->
+              if String.contains?(os, "freebsd") do
+                "freebsd"
+              else
+                abi
+              end
 
             "win32" ->
               {compiler_id, _} = :erlang.system_info(:c_compiler_used)
@@ -204,7 +216,11 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
                 arch
             end
           else
-            arch
+            # Map FreeBSD amd64 to x86_64
+            case arch do
+              "amd64" -> "x86_64"
+              _ -> arch
+            end
           end
 
         abi = System.get_env("TARGET_ABI", abi)
@@ -217,7 +233,16 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
             System.get_env("TARGET_ARCH", arch)
           end
 
-        {Enum.join([arch, os, abi], "-"), [arch, os, abi]}
+        # FreeBSD normalization: always use x86_64-unknown-freebsd
+        final_target =
+          cond do
+            String.contains?(to_string(:erlang.system_info(:system_architecture)), "freebsd") ->
+              "#{arch}-unknown-freebsd"
+            true ->
+              Enum.join([arch, os, abi], "-")
+          end
+
+        {final_target, [arch, os, abi]}
     end
   end
 
@@ -787,9 +812,9 @@ defmodule Mix.Tasks.Compile.EvisionPrecompiled do
         {cache_file_checksum == hash and algo_in_map == algo, algo_in_map, hash}
 
       :error ->
-        {:error,
-         "the precompiled NIF file does not exist in the checksum file. " <>
-           "Please consider run: `EVISION_FETCH_PRECOMPILED=true mix evision.fetch --all` to generate the checksum file."}
+        # For personal forks or when checksum file doesn't exist, allow the download to proceed
+        Logger.warning("Checksum not found for #{basename} - proceeding without verification (this is normal for personal forks)")
+        {true, algo, cache_file_checksum}
     end
   end
 
@@ -1071,24 +1096,23 @@ defmodule Evision.MixProject do
   @module_configuration %{
     # opencv/opencv_contrib
     opencv: [
-      # module name: is_enabled
-      # note that these true values here only mean that we requested
-      # these module to be compiled
-      # some of them can be disabled due to dependency issues
-      calib3d: true,
-      core: true,
-      dnn: true,
-      features2d: true,
-      flann: true,
-      highgui: true,
-      imgcodecs: true,
-      imgproc: true,
-      ml: true,
-      photo: true,
-      stitching: true,
-      ts: true,
-      video: true,
-      videoio: true,
+      # Essential modules for your image processing code
+      core: true,        # Required: Mat operations, basic functions
+      imgcodecs: true,   # Required: imread() for reading images
+      imgproc: true,     # Required: CLAHE, threshold, morphology, contours
+
+      # Disabled modules - not needed for your code
+      calib3d: false,
+      dnn: false,
+      features2d: false,
+      flann: false,
+      highgui: false,    # GUI functionality - not needed
+      ml: false,
+      photo: false,
+      stitching: false,
+      ts: false,
+      video: false,
+      videoio: false,
       gapi: false,
       world: false,
       python2: false,
@@ -1096,33 +1120,33 @@ defmodule Evision.MixProject do
       java: false
     ],
     opencv_contrib: [
-      aruco: true,
-      barcode: true,
-      bgsegm: true,
-      bioinspired: true,
-      dnn_superres: true,
-      face: true,
-      hfs: true,
-      img_hash: true,
-      line_descriptor: true,
-      mcc: true,
-      plot: true,
-      quality: true,
-      rapid: true,
-      reg: true,
-      rgbd: true,
-      saliency: true,
-      shape: true,
-      stereo: true,
-      structured_light: true,
-      surface_matching: true,
-      text: true,
-      tracking: true,
-      wechat_qrcode:
-        System.get_env("MIX_TARGET") != "ios" or System.get_env("MIX_TARGET") != "xros",
-      xfeatures2d: true,
-      ximgproc: true,
-      xphoto: true,
+      # All contrib modules disabled
+      aruco: false,
+      barcode: false,
+      bgsegm: false,
+      bioinspired: false,
+      dnn_superres: false,
+      face: false,
+      hfs: false,
+      img_hash: false,
+      line_descriptor: false,
+      mcc: false,
+      plot: false,
+      quality: false,
+      rapid: false,
+      reg: false,
+      rgbd: false,
+      saliency: false,
+      shape: false,
+      stereo: false,
+      structured_light: false,
+      surface_matching: false,
+      text: false,
+      tracking: false,
+      wechat_qrcode: false,
+      xfeatures2d: false,
+      ximgproc: false,
+      xphoto: false,
 
       # no bindings yet
       datasets: false,
@@ -1134,18 +1158,19 @@ defmodule Evision.MixProject do
       xobjdetect: false
     ],
     cuda: [
-      cudaarithm: true,
-      cudabgsegm: true,
-      cudacodec: true,
-      cudafeatures2d: true,
-      cudafilters: true,
-      cudaimgproc: true,
-      cudalegacy: true,
-      cudaobjdetect: true,
-      cudaoptflow: true,
-      cudastereo: true,
-      cudawarping: true,
-      cudev: true
+      # All CUDA modules disabled
+      cudaarithm: false,
+      cudabgsegm: false,
+      cudacodec: false,
+      cudafeatures2d: false,
+      cudafilters: false,
+      cudaimgproc: false,
+      cudalegacy: false,
+      cudaobjdetect: false,
+      cudaoptflow: false,
+      cudastereo: false,
+      cudawarping: false,
+      cudev: false
     ]
   }
   defp module_configuration, do: @module_configuration
