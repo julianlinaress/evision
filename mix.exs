@@ -1117,57 +1117,58 @@ defmodule Evision.MixProject do
   @module_configuration %{
     # opencv/opencv_contrib
     opencv: [
-      # Essential modules for your image processing code
-      core: true,        # Required: Mat operations, basic functions
-      imgcodecs: true,   # Required: imread() for reading images
-      imgproc: true,     # Required: CLAHE, threshold, morphology, contours
-
-      # Disabled modules - not needed for your code
-      calib3d: false,
-      dnn: false,
-      features2d: false,
-      flann: false,
-      highgui: false,    # GUI functionality - not needed
-      ml: false,
-      photo: false,
-      stitching: false,
+      # Core OpenCV modules - enable most standard modules
+      core: true,
+      imgproc: true,
+      imgcodecs: true,
+      videoio: true,
+      highgui: true,
+      video: true,
+      calib3d: true,
+      features2d: true,
+      objdetect: true,
+      dnn: true,
+      ml: true,
+      flann: true,
+      photo: true,
+      stitching: true,
+      gapi: true,
+      
+      # Usually disabled
       ts: false,
-      video: false,
-      videoio: false,
-      gapi: false,
       world: false,
       python2: false,
       python3: false,
       java: false
     ],
     opencv_contrib: [
-      # All contrib modules disabled
-      aruco: false,
-      barcode: false,
-      bgsegm: false,
-      bioinspired: false,
-      dnn_superres: false,
-      face: false,
-      hfs: false,
-      img_hash: false,
-      line_descriptor: false,
-      mcc: false,
-      plot: false,
-      quality: false,
-      rapid: false,
-      reg: false,
-      rgbd: false,
-      saliency: false,
-      shape: false,
-      stereo: false,
-      structured_light: false,
-      surface_matching: false,
-      text: false,
-      tracking: false,
-      wechat_qrcode: false,
-      xfeatures2d: false,
-      ximgproc: false,
-      xphoto: false,
+      # OpenCV contrib modules - enable standard ones
+      aruco: true,
+      barcode: true,
+      bgsegm: true,
+      bioinspired: true,
+      dnn_superres: true,
+      face: true,
+      hfs: true,
+      img_hash: true,
+      line_descriptor: true,
+      mcc: true,
+      plot: true,
+      quality: true,
+      rapid: true,
+      reg: true,
+      rgbd: true,
+      saliency: true,
+      shape: true,
+      stereo: true,
+      structured_light: true,
+      surface_matching: true,
+      text: true,
+      tracking: true,
+      wechat_qrcode: true,
+      xfeatures2d: true,
+      ximgproc: true,
+      xphoto: true,
 
       # no bindings yet
       datasets: false,
@@ -1179,7 +1180,7 @@ defmodule Evision.MixProject do
       xobjdetect: false
     ],
     cuda: [
-      # All CUDA modules disabled
+      # CUDA modules - usually disabled unless explicitly needed
       cudaarithm: false,
       cudabgsegm: false,
       cudacodec: false,
