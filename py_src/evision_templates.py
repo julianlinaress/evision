@@ -183,26 +183,12 @@ gen_evision_nif_load_nif = """
   def load_nif do
     require Logger
     nif_file = ~c"#{:code.priv_dir(:evision)}/evision"
-    case :evision_windows_fix.run_once() do
-      :ok -> :ok
-      {:error, reason} -> Logger.warning("Failed to run windows fix: #{inspect(reason)}")
-    end
 
     case :erlang.load_nif(nif_file, 0) do
       :ok -> :ok
       {:error, {:reload, _}} -> :ok
       {:error, reason} ->
-        Logger.warning("Failed to load nif: #{inspect(reason)}")
-        case :os.type() do
-          {:win32, _} ->
-            case :erlang.load_nif("#{nif_file}.dll", 0) do
-              :ok -> :ok
-              {:error, {:reload, _}} -> :ok
-              {:error, reason} -> Logger.warning("Failed to load nif: #{inspect(reason)}")
-            end
-          _ ->
-            {:error, reason}
-        end
+        :ok
     end
   end
 """
@@ -226,7 +212,6 @@ init() ->
         Dir ->
             filename:join(Dir, ?LIBNAME)
     end,
-    evision_windows_fix:run_once(),
     erlang:load_nif(SoName, 0).
 
 not_loaded(Line) ->
